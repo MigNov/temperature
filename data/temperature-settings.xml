@@ -1,0 +1,179 @@
+<temperature-tool-settings>
+	<substitutions>
+		<subst type="vendor" value="GenuineIntel">Intel</subst>
+		<subst type="vendor" value="AuthenticAMD">AMD</subst>
+		<subst type="const"  value="MSR_IA32_EE">0xee</subst>
+		<subst type="const"  value="MSR_IA32_PLATFORM_ID">0x17</subst>
+		<subst type="const"  value="MSR_IA32_TEMP_TARGET">0x1a2</subst>
+		<subst type="const"  value="MSR_IA32_THERM_STATUS">0x19c</subst>
+		<subst type="const"  value="AMD_VENDOR_ID">0x1022</subst>
+		<subst type="const"  value="AMD_K8_DEVICE_ID">0x1103</subst>
+		<subst type="const"  value="AMD_K8_DEVICE_FN">0x3</subst>
+		<subst type="const"  value="AMD_K8_TEMP_REG">0xe4</subst>
+		<subst type="const"  value="AMD_K10_DEVICE_ID">0x1203</subst>
+		<subst type="const"  value="AMD_K10_DEVICE_FN">0x3</subst>
+		<subst type="const"  value="AMD_K10_TEMP_REG">0xa4</subst>
+	</substitutions>
+	<definitions>
+		<definition name="TESTER" vendor="Intel">
+			<function name="getTemp" returnType="int">
+				<reg type="cpuid" value="eax, 0x1">cpuid</reg>
+				<reg type="msr" value="MSR_IA32_TEMP_TARGET">temp_t</reg>
+				<op type="shr" value="temp_t, 0x10">shr_tt</op>
+				<op type="and" value="shr_tt, 0xff">val</op>
+				<flagIf type="greater" value="val, 0x50">vh</flagIf>
+				<flagIf type="lower" value="val, 0x78">vl</flagIf>
+				<flagIf type="and" value="vh, vl">val_ok</flagIf>
+				<returnIf type="eq" value="val_ok, 1">val</returnIf>
+				<dev type="pci" value="0x1180, 0x0476, 0x3">pcidh</dev>
+				<reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfg</reg>
+				<setIf type="and" value="1, 1">scfg = 0x44</setIf>
+				<op type="or" value="scfg, ~0x44">nscfg</op>
+				<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">nscfg</write-reg>
+				<op type="or" value="scfg, 0x44">wb</op>
+				<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">wb</write-reg>
+				<setIf type="and" value="1, 1">sensorsp = 0x40</setIf>
+				<conditionBlock type="and" value="sensorsp, 0x40">
+					<!--
+					<call type="print" value="sensorsp">Sensorsp value is 0x%x</call>
+					-->
+					<op type="and" value="scfg, ~0x40">scfgn</op>
+					<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfgn</write-reg>
+					<reg type="pci" value="pcidh, AMD_K8_TEMP_REG">temp</reg>
+					<op type="or" value="scfgn, 0x04">scfgc</op>
+					<op type="shr" value="temp, 16">temp2</op>
+					<op type="and" value="temp2, 0xff">temp3</op>
+					<conditionBlock type="eq" value="temp3, 1">
+						<op type="and" value="sensorsp, ~0x40">sensorsp</op>
+					</conditionBlock>
+				</conditionBlock>
+				<conditionBlock type="and" value="sensorsp, 0x04">
+					<op type="and" value="scfg, ~0x4">scfgn</op>
+					<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfgn</write-reg>
+					<reg type="pci" value="pcidh, AMD_K8_TEMP_REG">temp</reg>
+					<op type="or" value="scfgn, 0x04">scfgc</op>
+					<op type="shr" value="temp, 16">temp2</op>
+					<op type="and" value="temp2, 0xff">temp3</op>
+					<conditionBlock type="eq" value="temp3, 1">
+						<op type="and" value="sensorsp, ~0x04">sensorsp</op>
+					</conditionBlock>
+				</conditionBlock>
+
+				<return value="val" />
+			</function>
+		</definition>
+		<definition name="Intel definitions" vendor="Intel">
+			<function name="getTjMax" returnType="int">
+				<reg type="msr" value="MSR_IA32_TEMP_TARGET">temp_t</reg>
+				<op type="shr" value="temp_t, 16">shr_tt</op>
+				<op type="and" value="shr_tt, 0xff">val</op>
+				<flagIf type="greater" value="val, 80">vh</flagIf>
+				<flagIf type="lower" value="val, 120">vl</flagIf>
+				<flagIf type="and" value="vh, vl">val_ok</flagIf>
+				<returnIf type="eq" value="val_ok, 1">val</returnIf>
+				<reg type="msr" value="MSR_IA32_EE">msr_ee</reg>
+				<reg type="msr" value="MSR_IA32_PLATFORM_ID">msr_platform_id</reg>
+				<op type="and" value="msr_ee, 0x40000000">use_ee</op>
+				<op type="shr" value="msr_platform_id, 50">tmp_pid</op>
+				<op type="and" value="tmp_pid, 0x7">platform_id</op>
+				<flagIf type="eq" value="##cpu_model, 0x17">m1</flagIf>
+				<flagIf type="eq" value="platform_id, 5">m2_1</flagIf>
+				<flagIf type="eq" value="platform_id, 7">m2_2</flagIf>
+				<flagIf type="or" value="m2_1, m2_2">m2</flagIf>
+				<flagIf type="and" value="m1, m2">model17h</flagIf>
+				<setIf type="and" value="model17h, use_ee">tj = 90</setIf>
+				<setIf type="and" value="model17h, !use_ee">tj = 105</setIf>
+				<setIf type="and" value="!model17h, use_ee">tj = 85</setIf>
+				<setIf type="and" value="!model17h, !use_ee">tj = 100</setIf>
+				<return value="tj" />
+			</function>
+			<function name="getTemp" returnType="int">
+				<reg type="msr" value="MSR_IA32_THERM_STATUS">msr_ts</reg>
+				<op type="shr" value="msr_ts, 16">shr_ts</op>
+				<op type="and" value="shr_ts, 0x7f">val</op>
+				<call type="function" value="getTjMax">tjmax</call>
+				<op type="subtract" value="tjmax, val">ret</op>
+				<!--
+				<call type="print" value="ret">Temperature is %d degrees</call>
+				-->
+				<return value="ret" />
+			</function>
+		</definition>
+		<definition name="AMD K10 definition" vendor="AMD">
+			<function name="getTemp" returnType="int">
+				<dev type="pci" value="AMD_VENDOR_ID, AMD_K10_DEVICE_ID, AMD_K10_DEVICE_FN">pcidh</dev>
+				<reg type="pci" value="pcidh, AMD_TEMP_REG">val</reg>
+				<returnIf type="eq" value="pcidh, NULL">0</returnIf>
+				<op type="shr" value="val, 21">shr_val</op>
+				<op type="multiply" value="shr_val, 125">msv</op>
+				<op type="divide" value="msv, 1000">ret</op>
+				<!--
+				<call type="print" value="ret">Temperature is %d degrees</call>
+				-->
+				<return value="ret" />
+			</function>
+		</definition>
+		<definition name="AMD K8 definition" vendor="AMD">
+			<function name="getTemp" returnType="int">
+				<reg type="cpuid" value="eax, 0x1">cpuid</reg>
+				<flagIf type="eq" value="cpuid, 0xF40">c1</flagIf>
+				<flagIf type="eq" value="cpuid, 0xF50">c2</flagIf>
+				<flagIf type="eq" value="cpuid, 0xF51">c3</flagIf>
+				<flagIf type="or" value="c1, c2">cx</flagIf>
+				<flagIf type="or" value="cx, c3">cres</flagIf>
+				<returnIf type="eq" value="cres, 1">0</returnIf>
+				<dev type="pci" value="AMD_VENDOR_ID, AMD_K8_DEVICE_ID, AMD_K8_DEVICE_FN">pcidh</dev>
+				<reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfg</reg>
+				<op type="or" value="scfg, ~0x44">nscfg</op>
+				<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">nscfg</write-reg>
+				<reset type="flags" value="all" />
+				<reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfg</reg>
+				<op type="or" value="scfg, 0x44">wb</op>
+				<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">wb</write-reg>
+				<reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">sensorsp</reg>
+				<conditionBlock type="and" value="sensorsp, 0x40">
+					<op type="and" value="scfg, ~0x40">scfgn</op>
+					<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfgn</write-reg>
+					<reg type="pci" value="pcidh, AMD_K8_TEMP_REG">temp</reg>
+					<op type="or" value="scfgn, 0x04">scfgc</op>
+					<op type="shr" value="temp, 16">temp2</op>
+					<op type="and" value="temp2, 0xff">temp3</op>
+					<conditionBlock type="eq" value="temp3, 1">
+						<op type="and" value="sensorsp, ~0x40">sensorsp</op>
+					</conditionBlock>
+				</conditionBlock>
+				<conditionBlock type="and" value="sensorsp, 0x04">
+					<op type="and" value="scfg, ~0x4">scfgn</op>
+					<write-reg type="pci-byte" value="pcidh, AMD_K8_TEMP_REG">scfgn</write-reg>
+					<reg type="pci" value="pcidh, AMD_K8_TEMP_REG">temp</reg>
+					<op type="or" value="scfgn, 0x04">scfgc</op>
+					<op type="shr" value="temp, 16">temp2</op>
+					<op type="and" value="temp2, 0xff">temp3</op>
+					<conditionBlock type="eq" value="temp3, 1">
+						<op type="and" value="sensorsp, ~0x04">sensorsp</op>
+					</conditionBlock>
+				</conditionBlock>
+
+				<return value="val" />
+			</function>
+		</definition>
+	</definitions>
+	<actions>
+		<action type="value-exceeds" value="40">
+			<op type="shr" value="val, 3">time</op>
+			<init>iteration=0</init>
+			<op type="add" value="iteration, 1">iteration</op>
+			<!--
+			<execute type="run-only" value="/etc/temperature-test-script" />
+			-->
+			<execute type="save-exit-code" value="/etc/temperature-test-script">test-ec</execute>
+			<returnIf type="eq" value="test-ec, 2" />
+			<sleep>time</sleep>
+			<readTemperature />
+		</action>
+		<action type="default">
+			<sleep>1</sleep>
+			<readTemperature />
+		</action>
+	</actions>
+</temperature-tool-settings>

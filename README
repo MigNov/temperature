@@ -1,0 +1,32 @@
+ Temperature Monitor
+ ====================
+
+This application monitors the CPU/motherboard temperature by reading
+values from CPU-specific register (MSR registers) and/or registers
+of PCI devices being defined in the XML configuration file.
+
+The whole application is written in C language with requirements for
+libxml2 and optionally pciutils-devel to support PCI device access.
+
+Terminology
+-----------
+
+This app should be referred to as "Temperature Monitor" but for the
+package containing this app the abbreviated form "temp-monitor" is
+acceptible.
+
+Pre-requisite software
+----------------------
+
+Where versions are noted below these are the versions tested to definitely
+work. For some of them you may be able to run with earlier releases, so
+please report any success to the mailing lists
+
+ libxml2
+ pciutils & pciutils-devel
+
+Copyright /  License
+--------------------
+
+All the application code is covered under the GPL licence.
+

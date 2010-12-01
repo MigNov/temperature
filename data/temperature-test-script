@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Mimimum time between runs, otherwise sleeps
+MIN_TIME=10
+# Maximum allowed temperature, otherwise sleeps
+MAX_ALLOWED=50
+
+echo "Time since last time: $2 second(s)"
+
+SLEEP=0
+if [ $2 -lt $MIN_TIME ]; then
+  echo "Time elapsed since last time is $2s (lower than $MIN_TIME)"
+  echo "Terminating ..."
+  exit 1
+fi
+
+if [ $1 -gt $MAX_ALLOWED ]; then
+  echo "Temperature is $1 °C (higher than $MAX_ALLOWED)"
+  SLEEP=1
+fi
+
+if [ "x$SLEEP" == "x1" ]; then
+  echo "Sleeping to reduce load ..."
+  sleep 10
+  exit 0
+fi
+
+echo "Temperature is $1 °C"
+exit 0

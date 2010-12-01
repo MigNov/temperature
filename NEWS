@@ -1,0 +1,7 @@
+ Temperature Monitor News
+ ========================
+
+Release 0.0.1 (November 08, 2010)
+---------------------------------
+- Initial version of temperature monitor (Michal Novotny)
+- Supports operation definitions using the XML markup language
